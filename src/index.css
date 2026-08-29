@@ -17,3 +17,11 @@ code {
   font-family:
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
+
+.board-overlay {
+  @apply fixed inset-0 z-30 pointer-events-none;
+}
+
+.board-overlay-control {
+  @apply pointer-events-auto;
+}

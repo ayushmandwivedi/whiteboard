@@ -8,9 +8,16 @@ function App() {
   return (
     <BoardProvider>
       <ToolboxProvider>
-        <ToolBar />
+        <div className="board-overlay">
+          <div className="board-overlay-control">
+            <ToolBar />
+          </div>
+          <div className="board-overlay-control">
+            <Toolbox />
+          </div>
+        </div>
+
         <Board />
-        <Toolbox />
       </ToolboxProvider>
     </BoardProvider>
   );

@@ -47,6 +47,14 @@ function Board() {
     const context = canvas.getContext("2d");
     const roughCanvas = rough.canvas(canvas);
     elements.forEach((element) => {
+      if (
+        element.type === TOOL_ITEMS.ARROW &&
+        element.x1 === element.x2 &&
+        element.y1 === element.y2
+      ) {
+        return;
+      }
+
       switch (element.type) {
         case TOOL_ITEMS.LINE:
         case TOOL_ITEMS.RECTANGLE:
