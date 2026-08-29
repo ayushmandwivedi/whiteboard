@@ -81,9 +81,13 @@ const boardReducer = (state, action) => {
       }
     }
     case BOARD_ACTIONS.DRAW_UP: {
+      const elements = [...state.elements];
+      const newHistory = state.history.slice(0, state.index + 1);
+      newHistory.push(elements);
       return {
         ...state,
-        toolActionType: TOOL_ACTION_TYPES.NONE,
+        history: newHistory,
+        index: state.index + 1,
       };
     }
     case BOARD_ACTIONS.ERASE: {
@@ -101,10 +105,30 @@ const boardReducer = (state, action) => {
       const index = state.elements.length - 1;
       const newElements = [...state.elements];
       newElements[index].text = action.payload.text;
+      const newHistory = state.history.slice(0, state.index + 1);
+      newHistory.push(newElements);
       return {
         ...state,
         toolActionType: TOOL_ACTION_TYPES.NONE,
         elements: newElements,
+        history: newHistory,
+        index: state.index + 1,
+      };
+    }
+    case BOARD_ACTIONS.UNDO: {
+      if (state.index <= 0) return state;
+      return {
+        ...state,
+        elements: state.history[state.index - 1],
+        index: state.index - 1,
+      };
+    }
+    case BOARD_ACTIONS.REDO: {
+      if (state.index >= state.history.length - 1) return state;
+      return {
+        ...state,
+        elements: state.history[state.index + 1],
+        index: state.index + 1,
       };
     }
     default:
@@ -115,6 +139,8 @@ const initialBoardState = {
   activeToolItem: TOOL_ITEMS.BRUSH,
   toolActionType: TOOL_ACTION_TYPES.NONE,
   elements: [],
+  history: [[]],
+  index: 0,
 };
 const BoardProvider = ({ children }) => {
   const [boardState, dispatchBoardAction] = useReducer(
@@ -167,7 +193,20 @@ const BoardProvider = ({ children }) => {
 
   const boardMouseUpHandler = () => {
     if (boardState.toolActionType === TOOL_ACTION_TYPES.WRITING) return;
-    dispatchBoardAction({ type: BOARD_ACTIONS.DRAW_UP });
+    if (
+      boardState.toolActionType === TOOL_ACTION_TYPES.DRAWING ||
+      boardState.toolActionType === TOOL_ACTION_TYPES.ERASING
+    ) {
+      dispatchBoardAction({
+        type: BOARD_ACTIONS.DRAW_UP,
+      });
+    }
+    dispatchBoardAction({
+      type: BOARD_ACTIONS.CHANGE_ACTION_TYPE,
+      payload: {
+        actionType: TOOL_ACTION_TYPES.NONE,
+      },
+    });
   };
 
   const textAreaBlurHandler = (text, toolboxState) => {
@@ -176,6 +215,18 @@ const BoardProvider = ({ children }) => {
       payload: {
         text,
       },
+    });
+  };
+
+  const boardUndoHandler = () => {
+    dispatchBoardAction({
+      type: BOARD_ACTIONS.UNDO,
+    });
+  };
+
+  const boardRedoHandler = () => {
+    dispatchBoardAction({
+      type: BOARD_ACTIONS.REDO,
     });
   };
 
@@ -188,6 +239,8 @@ const BoardProvider = ({ children }) => {
     boardMouseMoveHandler,
     boardMouseUpHandler,
     textAreaBlurHandler,
+    boardUndoHandler,
+    boardRedoHandler,
   };
 
   return (
