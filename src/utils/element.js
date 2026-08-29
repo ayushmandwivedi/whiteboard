@@ -1,6 +1,6 @@
 import { ARROW_LENGTH, TOOL_ITEMS } from "../constants";
 import rough from "roughjs/bin/rough";
-import { getArrowHeadsCoordinates } from "./math";
+import { getArrowHeadsCoordinates, isPointCloseToLine } from "./math";
 import getStroke from "perfect-freehand";
 
 const gen = rough.generator();
@@ -80,7 +80,25 @@ export const createRoughElement = (
 };
 
 export const isPointNearElement = (element, pointX, pointY) => {
-  return false;
+  const { x1, y1, x2, y2, type } = element;
+  const context = document.querySelector("canvas")?.getContext("2d");
+  switch (type) {
+    case TOOL_ITEMS.LINE:
+    case TOOL_ITEMS.ARROW:
+      return isPointCloseToLine(x1, y1, x2, y2, pointX, pointY);
+    case TOOL_ITEMS.RECTANGLE:
+    case TOOL_ITEMS.CIRCLE:
+      return (
+        isPointCloseToLine(x1, y1, x2, y1, pointX, pointY) ||
+        isPointCloseToLine(x2, y1, x2, y2, pointX, pointY) ||
+        isPointCloseToLine(x2, y2, x1, y2, pointX, pointY) ||
+        isPointCloseToLine(x1, y2, x1, y1, pointX, pointY)
+      );
+    case TOOL_ITEMS.BRUSH:
+      return context.isPointInPath(element.path, pointX, pointY);
+    default:
+      throw new Error("Type not recognized");
+  }
 };
 
 export const getSvgPathFromStroke = (stroke) => {
