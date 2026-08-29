@@ -25,7 +25,6 @@ export const createRoughElement = (
   };
   let options = {
     seed: id + 1, //id can't be zero
-    fillStyle: "solid",
   };
   if (stroke) {
     options.stroke = stroke;
@@ -78,6 +77,10 @@ export const createRoughElement = (
     default:
       throw new Error("Type not recognized");
   }
+};
+
+export const isPointNearElement = (element, pointX, pointY) => {
+  return false;
 };
 
 export const getSvgPathFromStroke = (stroke) => {

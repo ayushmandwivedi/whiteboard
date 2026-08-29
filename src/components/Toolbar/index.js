@@ -4,6 +4,7 @@ import cx from "classnames";
 import { LuRectangleHorizontal } from "react-icons/lu";
 import {
   FaArrowRight,
+  FaEraser,
   FaPaintBrush,
   FaRegCircle,
   FaSlash,
@@ -54,6 +55,14 @@ const ToolBar = () => {
         onClick={() => changeToolHandler(TOOL_ITEMS.ARROW)}
       >
         <FaArrowRight />
+      </div>
+      <div
+        className={cx(classes.toolItem, {
+          [classes.active]: activeToolItem === TOOL_ITEMS.ERASER,
+        })}
+        onClick={() => changeToolHandler(TOOL_ITEMS.ERASER)}
+      >
+        <FaEraser />
       </div>
     </div>
   );
