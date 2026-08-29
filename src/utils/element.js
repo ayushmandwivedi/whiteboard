@@ -4,7 +4,7 @@ import { getArrowHeadsCoordinates, isPointCloseToLine } from "./math";
 import getStroke from "perfect-freehand";
 
 const gen = rough.generator();
-export const createRoughElement = (
+export const createElement = (
   id,
   x1,
   y1,
@@ -74,6 +74,9 @@ export const createRoughElement = (
       ];
       element.roughEle = gen.linearPath(points, options);
       return element;
+    case TOOL_ITEMS.TEXT:
+      element.text = "";
+      return element;
     default:
       throw new Error("Type not recognized");
   }
@@ -81,7 +84,7 @@ export const createRoughElement = (
 
 export const isPointNearElement = (element, pointX, pointY) => {
   const { x1, y1, x2, y2, type } = element;
-  const context = document.querySelector("canvas")?.getContext("2d");
+  const context = document.getElementById("canvas").getContext("2d");
   switch (type) {
     case TOOL_ITEMS.LINE:
     case TOOL_ITEMS.ARROW:
