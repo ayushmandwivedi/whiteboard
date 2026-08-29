@@ -4,6 +4,7 @@ import cx from "classnames";
 import { LuRectangleHorizontal } from "react-icons/lu";
 import {
   FaArrowRight,
+  FaDownload,
   FaEraser,
   FaFont,
   FaPaintBrush,
@@ -22,6 +23,15 @@ const ToolBar = () => {
     boardUndoHandler,
     boardRedoHandler,
   } = useContext(boardContext);
+
+  const handleDownloadClick = () => {
+    const canvas = document.getElementById("canvas");
+    const data = canvas.toDataURL("image/png");
+    const anchor = document.createElement("a");
+    anchor.href = data;
+    anchor.download = "board.png";
+    anchor.click();
+  };
   return (
     <div className={classes.container}>
       <div
@@ -85,6 +95,9 @@ const ToolBar = () => {
       </div>
       <div className={classes.toolItem} onClick={boardRedoHandler}>
         <FaRedoAlt />
+      </div>
+      <div className={classes.toolItem} onClick={handleDownloadClick}>
+        <FaDownload />
       </div>
     </div>
   );
