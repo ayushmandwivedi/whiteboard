@@ -61,4 +61,20 @@ const loginUser = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser };
+const getProfile = async (req, res) => {
+  try {
+    // req.user.userId comes from the decoded JWT in your middleware
+    const user = await User.findById(req.user.userId).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ user });
+  } catch (error) {
+    console.error("Profile Fetch Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+module.exports = { registerUser, loginUser, getProfile };

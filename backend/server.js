@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
 const app = express();
 const connectToDB = require("./config/db");
 
@@ -12,4 +13,6 @@ app.use("/api/users", userRoutes);
 
 connectToDB();
 
-app.listen(3030, () => console.log("Server is running on port 3030"));
+app.listen(process.env.PORT, () =>
+  console.log("Server is running on port 3030"),
+);
