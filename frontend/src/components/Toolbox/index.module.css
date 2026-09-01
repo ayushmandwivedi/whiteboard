@@ -1,13 +1,13 @@
 .container {
-  @apply fixed left-5 top-1/2 z-40 -translate-y-1/2 border border-gray-400 bg-white/95 text-sm shadow-md;
+  @apply fixed left-5 top-1/2 z-40 -translate-y-1/2 rounded-2xl border border-violet-200 bg-white/95 text-sm shadow-lg shadow-violet-100/70;
 }
 
 .selectOptionContainer {
-  @apply mb-6 last:mb-0 first:pt-5 last:pb-5 px-4;
+  @apply mb-6 px-4 last:mb-0 first:pt-5 last:pb-5;
 }
 
 .toolBoxLabel {
-  @apply block mb-1;
+  @apply mb-1 block text-slate-700;
 }
 
 .colorsContainer {
@@ -15,7 +15,7 @@
 }
 
 .colorBox {
-  @apply inline-block w-5 h-5 rounded mr-1 last:mr-0;
+  @apply mr-1 inline-block h-5 w-5 rounded last:mr-0;
 }
 
 .noFillColorBox {
@@ -39,10 +39,10 @@
 }
 
 .activeColorBox {
-  @apply border border-gray-300;
-  box-shadow: 0 0 0 1px #4a47b1;
+  @apply border border-violet-400;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.18);
 }
 
 .colorPicker {
-  @apply mr-5 w-10 h-10 rounded border-2 border-neutral-400;
+  @apply mr-5 h-10 w-10 rounded-xl border-2 border-violet-200 bg-white;
 }
