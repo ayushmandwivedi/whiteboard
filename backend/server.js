@@ -5,6 +5,7 @@ require("dotenv").config();
 const app = express();
 const connectToDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
+const canvasRoutes = require("./routes/canvasRoutes");
 
 const PORT = process.env.PORT || 3030;
 
@@ -20,6 +21,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/users", userRoutes);
+app.use("/api/canvas", canvasRoutes);
 
 const startServer = async () => {
   try {
