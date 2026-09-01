@@ -4,14 +4,11 @@ require("dotenv").config();
 
 const registerUser = async (req, res) => {
   try {
-    if (!process.env.SECRET_KEY) {
-      throw new Error("SECRET_KEY is not defined");
-    }
     const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ error: "Email is already registered" });
+      return res.status(409).json({ error: "User already exists" });
     }
 
     const newUser = new User({ name, email, password });
@@ -45,9 +42,6 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    if (!process.env.SECRET_KEY) {
-      throw new Error("SECRET_KEY is not defined");
-    }
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
