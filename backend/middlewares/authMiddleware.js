@@ -1,6 +1,9 @@
 const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
+  if (!process.env.SECRET_KEY) {
+    throw new Error("SECRET_KEY is not defined");
+  }
   const authHeader = req.header("Authorization");
 
   // Verify header exists and follows 'Bearer <token>' format

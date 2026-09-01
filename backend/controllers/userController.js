@@ -4,6 +4,9 @@ require("dotenv").config();
 
 const registerUser = async (req, res) => {
   try {
+    if (!process.env.SECRET_KEY) {
+      throw new Error("SECRET_KEY is not defined");
+    }
     const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ email });
@@ -23,13 +26,28 @@ const registerUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Registration Error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    // Handles race condition:
+    // two requests can both pass findOne(),
+    // but only one can actually be inserted.
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "User already exists",
+      });
+    }
+
+    console.error("Registration error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
   }
 };
 
 const loginUser = async (req, res) => {
   try {
+    if (!process.env.SECRET_KEY) {
+      throw new Error("SECRET_KEY is not defined");
+    }
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
