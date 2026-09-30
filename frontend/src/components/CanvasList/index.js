@@ -6,6 +6,7 @@ import {
   FiEdit2,
   FiFileText,
   FiPlus,
+  FiShare2,
   FiTrash2,
   FiX,
 } from "react-icons/fi";
@@ -23,11 +24,17 @@ function CanvasList() {
     fetchCanvases,
     createCanvas,
     renameCanvas,
+    shareCanvas,
     deleteCanvas,
   } = useContext(boardContext);
   const [editingCanvasId, setEditingCanvasId] = useState(null);
   const [canvasNameDraft, setCanvasNameDraft] = useState("");
   const [renameError, setRenameError] = useState("");
+  const [sharingCanvasId, setSharingCanvasId] = useState(null);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareError, setShareError] = useState("");
+  const [shareSuccess, setShareSuccess] = useState("");
+  const [sharingRequestId, setSharingRequestId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const [deletingCanvasId, setDeletingCanvasId] = useState(null);
 
@@ -54,6 +61,23 @@ function CanvasList() {
       setRenameError("");
     } catch (error) {
       setRenameError(error.message);
+    }
+  };
+
+  const handleShare = async (event, canvasId) => {
+    event.preventDefault();
+    setSharingRequestId(canvasId);
+    setShareError("");
+    setShareSuccess("");
+    try {
+      const sharedUser = await shareCanvas(canvasId, shareEmail.trim());
+      setShareSuccess(`Shared with ${sharedUser.email}.`);
+      setSharingCanvasId(null);
+      setShareEmail("");
+    } catch (error) {
+      setShareError(error.message);
+    } finally {
+      setSharingRequestId(null);
     }
   };
 
@@ -106,6 +130,16 @@ function CanvasList() {
             {renameError}
           </p>
         )}
+        {shareError && (
+          <p className={styles.error} role="alert">
+            {shareError}
+          </p>
+        )}
+        {shareSuccess && (
+          <p className={styles.success} role="status">
+            {shareSuccess}
+          </p>
+        )}
         {deleteError && (
           <p className={styles.error} role="alert">
             {deleteError}
@@ -141,8 +175,49 @@ function CanvasList() {
         )}
         <ul className={styles.canvasList}>
           {canvases.map((canvas) => (
-            <li className={styles.canvasItem} key={canvas._id}>
-              {editingCanvasId === canvas._id ? (
+            <li
+              className={`${styles.canvasItem} ${
+                canvas.isOwner
+                  ? styles.ownedCanvasItem
+                  : styles.sharedCanvasItem
+              }`}
+              key={canvas._id}
+            >
+              {sharingCanvasId === canvas._id ? (
+                <form
+                  className={styles.shareForm}
+                  onSubmit={(event) => handleShare(event, canvas._id)}
+                >
+                  <input
+                    aria-label="Email address to share with"
+                    className={styles.renameInput}
+                    type="email"
+                    placeholder="Email address"
+                    value={shareEmail}
+                    onChange={(event) => setShareEmail(event.target.value)}
+                    required
+                    autoFocus
+                  />
+                  <button
+                    className={styles.iconButton}
+                    type="submit"
+                    aria-label="Share canvas"
+                    title="Share canvas"
+                    disabled={sharingRequestId === canvas._id}
+                  >
+                    <FiShare2 aria-hidden="true" />
+                  </button>
+                  <button
+                    className={styles.iconButton}
+                    type="button"
+                    aria-label="Cancel sharing"
+                    title="Cancel"
+                    onClick={() => setSharingCanvasId(null)}
+                  >
+                    <FiX aria-hidden="true" />
+                  </button>
+                </form>
+              ) : editingCanvasId === canvas._id ? (
                 <form
                   className={styles.renameForm}
                   onSubmit={(event) => handleRename(event, canvas._id)}
@@ -197,28 +272,45 @@ function CanvasList() {
                       </span>
                     </span>
                   </Link>
-                  <button
-                    className={styles.renameButton}
-                    type="button"
-                    onClick={() => beginRename(canvas)}
-                    aria-label={`Rename ${canvas.name || "canvas"}`}
-                    title="Rename canvas"
-                  >
-                    <FiEdit2 aria-hidden="true" />
-                    <span>Rename</span>
-                  </button>
                   {canvas.isOwner && (
-                    <button
-                      className={styles.deleteButton}
-                      type="button"
-                      onClick={() => handleDelete(canvas)}
-                      disabled={deletingCanvasId === canvas._id}
-                      aria-label={`Delete ${canvas.name || "canvas"}`}
-                      title="Delete canvas"
-                    >
-                      <FiTrash2 aria-hidden="true" />
-                      <span>Delete</span>
-                    </button>
+                    <div className={styles.canvasActions}>
+                      <button
+                        className={styles.shareButton}
+                        type="button"
+                        onClick={() => {
+                          setSharingCanvasId(canvas._id);
+                          setShareEmail("");
+                          setShareError("");
+                          setShareSuccess("");
+                        }}
+                        aria-label={`Share ${canvas.name || "canvas"}`}
+                        title="Share canvas"
+                      >
+                        <FiShare2 aria-hidden="true" />
+                        <span>Share</span>
+                      </button>
+                      <button
+                        className={styles.renameButton}
+                        type="button"
+                        onClick={() => beginRename(canvas)}
+                        aria-label={`Rename ${canvas.name || "canvas"}`}
+                        title="Rename canvas"
+                      >
+                        <FiEdit2 aria-hidden="true" />
+                        <span>Rename</span>
+                      </button>
+                      <button
+                        className={styles.deleteButton}
+                        type="button"
+                        onClick={() => handleDelete(canvas)}
+                        disabled={deletingCanvasId === canvas._id}
+                        aria-label={`Delete ${canvas.name || "canvas"}`}
+                        title="Delete canvas"
+                      >
+                        <FiTrash2 aria-hidden="true" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   )}
                 </>
               )}

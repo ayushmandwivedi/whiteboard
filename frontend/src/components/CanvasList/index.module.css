@@ -87,13 +87,18 @@
 }
 
 .message,
-.error {
+.error,
+.success {
   margin: 0 0 20px;
   color: #475569;
 }
 
 .error {
   color: #b91c1c;
+}
+
+.success {
+  color: #15803d;
 }
 
 .emptyState {
@@ -142,17 +147,22 @@
 
 .canvasItem {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 108px;
-  grid-template-rows: 40px 40px;
-  align-items: stretch;
-  align-content: center;
   gap: 8px;
   min-width: 0;
 }
 
+.ownedCanvasItem {
+  grid-template-columns: minmax(0, 1fr) 108px;
+  grid-template-rows: repeat(3, 40px);
+  align-items: stretch;
+  align-content: center;
+}
+
+.sharedCanvasItem {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .canvasLink {
-  grid-column: 1;
-  grid-row: 1 / span 2;
   display: flex;
   min-height: 82px;
   align-items: center;
@@ -166,6 +176,15 @@
   transition:
     border-color 150ms ease,
     box-shadow 150ms ease;
+}
+
+.ownedCanvasItem .canvasLink {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+}
+
+.sharedCanvasItem .canvasLink {
+  grid-column: 1;
 }
 
 .canvasLink:hover {
@@ -214,10 +233,17 @@
   height: 13px;
 }
 
+.canvasActions {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  grid-template-rows: repeat(3, 40px);
+  gap: 8px;
+}
+
+.shareButton,
 .renameButton {
   display: inline-flex;
-  grid-column: 2;
-  grid-row: 1;
   width: 100%;
   min-height: 40px;
   align-items: center;
@@ -233,6 +259,7 @@
   cursor: pointer;
 }
 
+.shareButton:hover,
 .renameButton:hover,
 .deleteButton:hover,
 .iconButton:hover {
@@ -240,6 +267,7 @@
   color: #6d28d9;
 }
 
+.shareButton svg,
 .renameButton svg {
   width: 15px;
   height: 15px;
@@ -248,8 +276,18 @@
 .renameForm {
   display: grid;
   grid-column: 1 / -1;
+  grid-row: 1 / span 3;
   grid-template-columns: minmax(0, 1fr) 40px 40px;
   gap: 8px;
+}
+
+.shareForm {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1 / span 3;
+  grid-template-columns: minmax(0, 1fr) 40px 40px;
+  gap: 8px;
+  align-self: center;
 }
 
 .renameInput {
@@ -306,8 +344,6 @@
 
 .deleteButton {
   display: inline-flex;
-  grid-column: 2;
-  grid-row: 2;
   width: 100%;
   height: 40px;
   align-items: center;

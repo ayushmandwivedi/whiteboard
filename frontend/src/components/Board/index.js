@@ -63,40 +63,58 @@ function Board() {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
     const roughCanvas = rough.canvas(canvas);
-    elements.forEach((element) => {
-      if (
-        element.type === TOOL_ITEMS.ARROW &&
-        element.x1 === element.x2 &&
-        element.y1 === element.y2
-      ) {
-        return;
-      }
+    let cancelled = false;
 
-      switch (element.type) {
-        case TOOL_ITEMS.LINE:
-        case TOOL_ITEMS.RECTANGLE:
-        case TOOL_ITEMS.CIRCLE:
-        case TOOL_ITEMS.ARROW:
-          roughCanvas.draw(element.roughEle);
-          break;
-        case TOOL_ITEMS.BRUSH:
-          context.fillStyle = element.stroke;
-          context.fill(element.path);
-          context.restore();
-          break;
-        case TOOL_ITEMS.TEXT:
-          context.textBaseline = "top";
-          context.font = `${element.size}px Caveat`;
-          context.fillStyle = element.stroke;
-          context.fillText(element.text, element.x1, element.y1);
-          context.restore();
-          break;
-        default:
-          throw new Error("Type not recognized");
-      }
+    const drawElements = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      elements.forEach((element) => {
+        if (
+          element.type === TOOL_ITEMS.ARROW &&
+          element.x1 === element.x2 &&
+          element.y1 === element.y2
+        ) {
+          return;
+        }
+
+        switch (element.type) {
+          case TOOL_ITEMS.LINE:
+          case TOOL_ITEMS.RECTANGLE:
+          case TOOL_ITEMS.CIRCLE:
+          case TOOL_ITEMS.ARROW:
+            roughCanvas.draw(element.roughEle);
+            break;
+          case TOOL_ITEMS.BRUSH:
+            context.fillStyle = element.stroke;
+            context.fill(element.path);
+            context.restore();
+            break;
+          case TOOL_ITEMS.TEXT:
+            context.textBaseline = "top";
+            context.font = `${element.size}px "Caveat"`;
+            context.fillStyle = element.stroke;
+            context.fillText(element.text, element.x1, element.y1);
+            context.restore();
+            break;
+          default:
+            throw new Error("Type not recognized");
+        }
+      });
+    };
+
+    const textFonts = [
+      ...new Set(
+        elements
+          .filter((element) => element.type === TOOL_ITEMS.TEXT)
+          .map((element) => `${element.size}px "Caveat"`),
+      ),
+    ];
+
+    Promise.all(textFonts.map((font) => document.fonts.load(font))).then(() => {
+      if (!cancelled) drawElements();
     });
 
     return () => {
+      cancelled = true;
       context.clearRect(0, 0, canvas.width, canvas.height);
     };
   }, [canvasSize, elements]);

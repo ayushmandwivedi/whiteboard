@@ -1,11 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
 require("dotenv").config();
 
 const app = express();
 const connectToDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const canvasRoutes = require("./routes/canvasRoutes");
+const configureSocket = require("./socket");
 
 const PORT = process.env.PORT || 3030;
 
@@ -23,11 +25,14 @@ app.use(express.json({ limit: "5mb" }));
 app.use("/api/users", userRoutes);
 app.use("/api/canvas", canvasRoutes);
 
+const server = http.createServer(app);
+configureSocket(server);
+
 const startServer = async () => {
   try {
     await connectToDB();
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {

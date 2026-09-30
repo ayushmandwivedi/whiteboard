@@ -1,5 +1,8 @@
 const Canvas = require("../models/canvasModel");
+const User = require("../models/userModel");
 const mongoose = require("mongoose");
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const getUserCanvases = async (req, res) => {
   try {
@@ -158,10 +161,72 @@ const deleteCanvas = async (req, res) => {
   }
 };
 
+const shareCanvas = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid canvas ID" });
+    }
+
+    const email =
+      typeof req.body.email === "string" ? req.body.email.trim() : "";
+    if (!email) {
+      return res.status(400).json({ error: "A user email is required" });
+    }
+
+    const canvas = await Canvas.findById(id);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+    if (canvas.owner.toString() !== req.user.userId) {
+      return res
+        .status(403)
+        .json({ error: "Only the owner can share this canvas" });
+    }
+
+    const userToShare = await User.findOne({
+      email: new RegExp(`^${escapeRegExp(email)}$`, "i"),
+    }).select("name email");
+    if (!userToShare) {
+      return res.status(404).json({ error: "User with this email not found" });
+    }
+
+    const sharedUserId = userToShare._id;
+    if (sharedUserId.toString() === canvas.owner.toString()) {
+      return res
+        .status(400)
+        .json({ error: "Owner cannot be added to shared list" });
+    }
+    if (
+      canvas.shared.some(
+        (userId) => userId.toString() === sharedUserId.toString(),
+      )
+    ) {
+      return res.status(409).json({ error: "Already shared with user" });
+    }
+
+    canvas.shared.addToSet(sharedUserId);
+    await canvas.save();
+    return res.status(200).json({
+      message: "Canvas shared successfully",
+      sharedUser: {
+        id: sharedUserId,
+        name: userToShare.name,
+        email: userToShare.email,
+      },
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ error: "Failed to share canvas", details: error.message });
+  }
+};
+
 module.exports = {
   getUserCanvases,
   loadCanvas,
   createCanvas,
   updateCanvas,
   deleteCanvas,
+  shareCanvas,
 };

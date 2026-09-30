@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useReducer, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import { io } from "socket.io-client";
 import boardContext from "./board-context";
 import { BOARD_ACTIONS, TOOL_ACTION_TYPES, TOOL_ITEMS } from "../constants";
 import {
@@ -53,6 +60,18 @@ const boardReducer = (state, action) => {
         history: [action.payload.elements],
         index: 0,
         toolActionType: TOOL_ACTION_TYPES.NONE,
+      };
+    }
+    case "SYNC_CANVAS": {
+      const history = [
+        ...state.history.slice(0, state.index),
+        action.payload.elements,
+      ];
+      return {
+        ...state,
+        elements: action.payload.elements,
+        history,
+        index: history.length - 1,
       };
     }
     case BOARD_ACTIONS.CHANGE_TOOL: {
@@ -201,6 +220,10 @@ const BoardProvider = ({ children }) => {
   const [canvasLoading, setCanvasLoading] = useState(false);
   const [canvasError, setCanvasError] = useState("");
   const [canvasSaveStatus, setCanvasSaveStatus] = useState("saved");
+  const [canvasSocketReady, setCanvasSocketReady] = useState(false);
+  const socketRef = useRef(null);
+  const suppressNextBroadcastRef = useRef(false);
+  const pendingCanvasSyncRef = useRef(null);
 
   const fetchCanvases = useCallback(async () => {
     setCanvasesLoading(true);
@@ -271,6 +294,37 @@ const BoardProvider = ({ children }) => {
     );
   }, []);
 
+  const shareCanvas = useCallback(async (id, email) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Please log in to share this canvas.");
+
+    const response = await fetch(
+      `http://localhost:3030/api/canvas/share/${id}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      },
+    );
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to share canvas.");
+
+    setCanvases((currentCanvases) =>
+      currentCanvases.map((canvas) =>
+        canvas._id === id
+          ? {
+              ...canvas,
+              shared: [...(canvas.shared || []), data.sharedUser.id],
+            }
+          : canvas,
+      ),
+    );
+    return data.sharedUser;
+  }, []);
+
   const deleteCanvas = useCallback(async (id) => {
     const token = localStorage.getItem("token");
     if (!token) throw new Error("Please log in to delete this canvas.");
@@ -312,6 +366,100 @@ const BoardProvider = ({ children }) => {
       setCanvasSaveStatus("error");
     }
   }, []);
+
+  useEffect(() => {
+    const canvasId = boardState.canvasId;
+    if (!canvasId) {
+      setCanvasSocketReady(false);
+      return undefined;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setCanvasSocketReady(false);
+      return undefined;
+    }
+
+    const socket = io("http://localhost:3030", { auth: { token } });
+    socketRef.current = socket;
+    setCanvasSocketReady(false);
+
+    socket.on("connect", () => {
+      socket.emit("canvas:join", canvasId, (result) => {
+        if (!result?.ok || socketRef.current !== socket) {
+          if (result?.error)
+            console.error("Canvas socket join failed:", result.error);
+          return;
+        }
+
+        setCanvasSocketReady(true);
+        if (Array.isArray(result.elements)) {
+          pendingCanvasSyncRef.current = null;
+          suppressNextBroadcastRef.current = true;
+          dispatchBoardAction({
+            type: "SYNC_CANVAS",
+            payload: { elements: restoreElements(result.elements) },
+          });
+        }
+      });
+    });
+
+    socket.on("canvas:updated", (update) => {
+      if (update.canvasId !== canvasId) return;
+      pendingCanvasSyncRef.current = null;
+      suppressNextBroadcastRef.current = true;
+      dispatchBoardAction({
+        type: "SYNC_CANVAS",
+        payload: { elements: restoreElements(update.elements || []) },
+      });
+    });
+
+    socket.on("disconnect", () => setCanvasSocketReady(false));
+    socket.on("connect_error", (error) => {
+      console.error("Canvas socket connection failed:", error.message);
+      setCanvasSocketReady(false);
+    });
+
+    return () => {
+      setCanvasSocketReady(false);
+      pendingCanvasSyncRef.current = null;
+      socket.disconnect();
+      if (socketRef.current === socket) socketRef.current = null;
+    };
+  }, [boardState.canvasId]);
+
+  useEffect(() => {
+    if (!boardState.canvasId || !canvasSocketReady) return undefined;
+    if (suppressNextBroadcastRef.current) {
+      suppressNextBroadcastRef.current = false;
+      pendingCanvasSyncRef.current = null;
+      return undefined;
+    }
+
+    pendingCanvasSyncRef.current = {
+      canvasId: boardState.canvasId,
+      elements: serializeElements(boardState.elements),
+    };
+  }, [boardState.canvasId, boardState.elements, canvasSocketReady]);
+
+  useEffect(() => {
+    if (!boardState.canvasId || !canvasSocketReady) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      const pendingSync = pendingCanvasSyncRef.current;
+      const socket = socketRef.current;
+      if (!pendingSync || !socket?.connected) return;
+
+      pendingCanvasSyncRef.current = null;
+      socket.emit("canvas:sync", pendingSync, (result) => {
+        if (!result?.ok) {
+          console.error("Canvas sync failed:", result?.error);
+        }
+      });
+    }, 80);
+
+    return () => window.clearInterval(intervalId);
+  }, [boardState.canvasId, canvasSocketReady]);
 
   useEffect(() => {
     if (!boardState.canvasId) return undefined;
@@ -449,9 +597,11 @@ const BoardProvider = ({ children }) => {
     canvasLoading,
     canvasError,
     canvasSaveStatus,
+    canvasSocketReady,
     fetchCanvases,
     createCanvas,
     renameCanvas,
+    shareCanvas,
     deleteCanvas,
     loadCanvas,
     changeToolHandler,
