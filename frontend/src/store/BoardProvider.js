@@ -222,12 +222,14 @@ const BoardProvider = ({ children }) => {
   const [canvasError, setCanvasError] = useState("");
   const [canvasSaveStatus, setCanvasSaveStatus] = useState("saved");
   const [canvasSocketReady, setCanvasSocketReady] = useState(false);
+  const [remoteCursors, setRemoteCursors] = useState({});
   const socketRef = useRef(null);
   const suppressNextBroadcastRef = useRef(false);
   const pendingCanvasSyncRef = useRef(null);
   const lastObservedCanvasIdRef = useRef(null);
   const saveRevisionRef = useRef(0);
   const saveQueueRef = useRef(Promise.resolve());
+  const lastCursorSentAtRef = useRef(0);
 
   const fetchCanvases = useCallback(async () => {
     setCanvasesLoading(true);
@@ -376,8 +378,10 @@ const BoardProvider = ({ children }) => {
     });
     socketRef.current = socket;
     setCanvasSocketReady(false);
+    setRemoteCursors({});
 
     socket.on("connect", () => {
+      setRemoteCursors({});
       socket.emit("canvas:join", canvasId, (result) => {
         if (!result?.ok || socketRef.current !== socket) {
           if (result?.error)
@@ -407,6 +411,23 @@ const BoardProvider = ({ children }) => {
       });
     });
 
+    socket.on("canvas:cursor-moved", (cursor) => {
+      if (cursor.socketId === socket.id) return;
+      setRemoteCursors((currentCursors) => ({
+        ...currentCursors,
+        [cursor.socketId]: cursor,
+      }));
+    });
+
+    socket.on("canvas:cursor-left", ({ socketId }) => {
+      setRemoteCursors((currentCursors) => {
+        if (!currentCursors[socketId]) return currentCursors;
+        const nextCursors = { ...currentCursors };
+        delete nextCursors[socketId];
+        return nextCursors;
+      });
+    });
+
     socket.on("canvas:access-revoked", (event) => {
       if (event.canvasId !== canvasId) return;
       setCanvasSocketReady(false);
@@ -420,7 +441,10 @@ const BoardProvider = ({ children }) => {
       });
     });
 
-    socket.on("disconnect", () => setCanvasSocketReady(false));
+    socket.on("disconnect", () => {
+      setCanvasSocketReady(false);
+      setRemoteCursors({});
+    });
     socket.on("connect_error", (error) => {
       console.error("Canvas socket connection failed:", error.message);
       setCanvasSocketReady(false);
@@ -428,11 +452,35 @@ const BoardProvider = ({ children }) => {
 
     return () => {
       setCanvasSocketReady(false);
+      setRemoteCursors({});
       pendingCanvasSyncRef.current = null;
       socket.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
     };
   }, [boardState.canvasId]);
+
+  const boardCursorMoveHandler = useCallback(
+    (event) => {
+      const socket = socketRef.current;
+      const now = performance.now();
+      if (
+        !boardState.canvasId ||
+        !canvasSocketReady ||
+        !socket?.connected ||
+        now - lastCursorSentAtRef.current < 40
+      ) {
+        return;
+      }
+
+      lastCursorSentAtRef.current = now;
+      socket.volatile.emit("canvas:cursor", {
+        canvasId: boardState.canvasId,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [boardState.canvasId, canvasSocketReady],
+  );
 
   useEffect(() => {
     if (!boardState.canvasId || !canvasSocketReady) return undefined;
@@ -610,6 +658,7 @@ const BoardProvider = ({ children }) => {
     canvasError,
     canvasSaveStatus,
     canvasSocketReady,
+    remoteCursors,
     fetchCanvases,
     createCanvas,
     renameCanvas,
@@ -617,6 +666,7 @@ const BoardProvider = ({ children }) => {
     revokeCanvasShare,
     deleteCanvas,
     loadCanvas,
+    boardCursorMoveHandler,
     changeToolHandler,
     boardMouseDownHandler,
     boardMouseMoveHandler,

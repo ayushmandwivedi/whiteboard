@@ -18,6 +18,9 @@ const evictCanvasSockets = async (io, canvasId, userId, message) => {
 
     await Promise.all(
       affectedSockets.map(async (socket) => {
+        socket.to(canvasId).emit("canvas:cursor-left", {
+          socketId: socket.id,
+        });
         await socket.leave(canvasId);
         socket.emit("canvas:access-revoked", { canvasId, message });
       }),

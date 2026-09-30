@@ -9,6 +9,7 @@ import rough from "roughjs";
 import boardContext from "../../store/board-context";
 import { TOOL_ACTION_TYPES, TOOL_ITEMS } from "../../constants";
 import toolboxContext from "../../store/toolbox-context";
+import CursorLayer from "../CursorLayer";
 import classes from "./index.module.css";
 
 function Board() {
@@ -24,6 +25,8 @@ function Board() {
     boardMouseDownHandler,
     boardMouseMoveHandler,
     boardMouseUpHandler,
+    boardCursorMoveHandler,
+    remoteCursors,
     textAreaBlurHandler,
     boardUndoHandler,
     boardRedoHandler,
@@ -42,6 +45,12 @@ function Board() {
   }, []);
 
   const { toolboxState } = useContext(toolboxContext);
+
+  useEffect(() => {
+    window.addEventListener("pointermove", boardCursorMoveHandler);
+    return () =>
+      window.removeEventListener("pointermove", boardCursorMoveHandler);
+  }, [boardCursorMoveHandler]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -144,6 +153,7 @@ function Board() {
 
   return (
     <>
+      <CursorLayer cursors={remoteCursors} />
       {toolActionType === TOOL_ACTION_TYPES.WRITING && (
         <textarea
           type="text"
