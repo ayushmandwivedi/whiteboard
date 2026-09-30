@@ -331,16 +331,18 @@ const BoardProvider = ({ children }) => {
   }, []);
 
   const saveCanvas = useCallback((id, elements, revision) => {
-    const saveRequest = saveQueueRef.current.catch(() => {}).then(async () => {
-      if (saveRevisionRef.current !== revision) return false;
+    const saveRequest = saveQueueRef.current
+      .catch(() => {})
+      .then(async () => {
+        if (saveRevisionRef.current !== revision) return false;
 
-      setCanvasSaveStatus("saving");
-      await apiRequest(`/canvas/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ elements: serializeElements(elements) }),
+        setCanvasSaveStatus("saving");
+        await apiRequest(`/canvas/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ elements: serializeElements(elements) }),
+        });
+        return true;
       });
-      return true;
-    });
     saveQueueRef.current = saveRequest.catch(() => {});
 
     saveRequest
