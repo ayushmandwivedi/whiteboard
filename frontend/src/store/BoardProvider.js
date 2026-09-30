@@ -271,6 +271,22 @@ const BoardProvider = ({ children }) => {
     );
   }, []);
 
+  const deleteCanvas = useCallback(async (id) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Please log in to delete this canvas.");
+
+    const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to delete canvas.");
+
+    setCanvases((currentCanvases) =>
+      currentCanvases.filter((canvas) => canvas._id !== id),
+    );
+  }, []);
+
   const saveCanvas = useCallback(async (id, elements) => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -436,6 +452,7 @@ const BoardProvider = ({ children }) => {
     fetchCanvases,
     createCanvas,
     renameCanvas,
+    deleteCanvas,
     loadCanvas,
     changeToolHandler,
     boardMouseDownHandler,

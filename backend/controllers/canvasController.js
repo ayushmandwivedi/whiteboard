@@ -9,7 +9,12 @@ const getUserCanvases = async (req, res) => {
       $or: [{ owner: userId }, { shared: userId }],
     }).sort({ createdAt: -1 });
 
-    res.json(canvases);
+    res.json(
+      canvases.map((canvas) => ({
+        ...canvas.toObject(),
+        isOwner: canvas.owner.toString() === userId,
+      })),
+    );
   } catch (error) {
     res
       .status(500)
@@ -126,4 +131,37 @@ const updateCanvas = async (req, res) => {
   }
 };
 
-module.exports = { getUserCanvases, loadCanvas, createCanvas, updateCanvas };
+const deleteCanvas = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid canvas ID" });
+    }
+
+    const canvas = await Canvas.findById(id);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    if (canvas.owner.toString() !== req.user.userId) {
+      return res
+        .status(403)
+        .json({ error: "Only the owner can delete this canvas" });
+    }
+
+    await Canvas.findByIdAndDelete(id);
+    return res.json({ message: "Canvas deleted successfully" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ error: "Failed to delete canvas", details: error.message });
+  }
+};
+
+module.exports = {
+  getUserCanvases,
+  loadCanvas,
+  createCanvas,
+  updateCanvas,
+  deleteCanvas,
+};

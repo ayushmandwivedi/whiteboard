@@ -6,6 +6,7 @@ import {
   FiEdit2,
   FiFileText,
   FiPlus,
+  FiTrash2,
   FiX,
 } from "react-icons/fi";
 import boardContext from "../../store/board-context";
@@ -22,10 +23,13 @@ function CanvasList() {
     fetchCanvases,
     createCanvas,
     renameCanvas,
+    deleteCanvas,
   } = useContext(boardContext);
   const [editingCanvasId, setEditingCanvasId] = useState(null);
   const [canvasNameDraft, setCanvasNameDraft] = useState("");
   const [renameError, setRenameError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingCanvasId, setDeletingCanvasId] = useState(null);
 
   useEffect(() => {
     fetchCanvases();
@@ -50,6 +54,23 @@ function CanvasList() {
       setRenameError("");
     } catch (error) {
       setRenameError(error.message);
+    }
+  };
+
+  const handleDelete = async (canvas) => {
+    const canvasName = canvas.name || "Untitled canvas";
+    if (!window.confirm(`Delete "${canvasName}"? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingCanvasId(canvas._id);
+    setDeleteError("");
+    try {
+      await deleteCanvas(canvas._id);
+    } catch (error) {
+      setDeleteError(error.message);
+    } finally {
+      setDeletingCanvasId(null);
     }
   };
 
@@ -83,6 +104,11 @@ function CanvasList() {
         {renameError && (
           <p className={styles.error} role="alert">
             {renameError}
+          </p>
+        )}
+        {deleteError && (
+          <p className={styles.error} role="alert">
+            {deleteError}
           </p>
         )}
         {canvasesLoading && (
@@ -181,6 +207,19 @@ function CanvasList() {
                     <FiEdit2 aria-hidden="true" />
                     <span>Rename</span>
                   </button>
+                  {canvas.isOwner && (
+                    <button
+                      className={styles.deleteButton}
+                      type="button"
+                      onClick={() => handleDelete(canvas)}
+                      disabled={deletingCanvasId === canvas._id}
+                      aria-label={`Delete ${canvas.name || "canvas"}`}
+                      title="Delete canvas"
+                    >
+                      <FiTrash2 aria-hidden="true" />
+                      <span>Delete</span>
+                    </button>
+                  )}
                 </>
               )}
             </li>

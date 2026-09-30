@@ -17,6 +17,7 @@ const boardContext = createContext({
   fetchCanvases: async () => {},
   createCanvas: async () => null,
   renameCanvas: async () => {},
+  deleteCanvas: async () => {},
   loadCanvas: async () => {},
   boardMouseDownHandler: () => {},
   changeToolHandler: () => {},
