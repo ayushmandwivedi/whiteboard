@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const canvasSchema = new mongoose.Schema({
+  name: { type: String, trim: true, default: "Untitled canvas" },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   shared: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   elements: [{ type: mongoose.Schema.Types.Mixed }],

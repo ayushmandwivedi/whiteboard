@@ -1,4 +1,10 @@
-import { useContext, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import rough from "roughjs";
 import boardContext from "../../store/board-context";
 import { TOOL_ACTION_TYPES, TOOL_ITEMS } from "../../constants";
@@ -8,6 +14,10 @@ import classes from "./index.module.css";
 function Board() {
   const canvasRef = useRef();
   const textAreaRef = useRef();
+  const [canvasSize, setCanvasSize] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
   const {
     elements,
     toolActionType,
@@ -18,10 +28,17 @@ function Board() {
     boardUndoHandler,
     boardRedoHandler,
   } = useContext(boardContext);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  useLayoutEffect(() => {
+    const resizeCanvas = () => {
+      const canvas = canvasRef.current;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      setCanvasSize({ width: canvas.width, height: canvas.height });
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    return () => window.removeEventListener("resize", resizeCanvas);
   }, []);
 
   const { toolboxState } = useContext(toolboxContext);
@@ -82,7 +99,7 @@ function Board() {
     return () => {
       context.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [elements]);
+  }, [canvasSize, elements]);
 
   useEffect(() => {
     const textarea = textAreaRef.current;

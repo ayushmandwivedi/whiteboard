@@ -24,7 +24,7 @@ const Login = () => {
 
         if (response.ok) {
           localStorage.setItem("token", data.token);
-          navigate("/board");
+          navigate("/canvases");
         } else {
           alert(data.message || data.error || "Login failed");
         }

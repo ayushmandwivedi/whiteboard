@@ -1,4 +1,4 @@
-import React, { useCallback, useReducer } from "react";
+import React, { useCallback, useEffect, useReducer, useState } from "react";
 import boardContext from "./board-context";
 import { BOARD_ACTIONS, TOOL_ACTION_TYPES, TOOL_ITEMS } from "../constants";
 import {
@@ -8,8 +8,53 @@ import {
 } from "../utils/element";
 import getStroke from "perfect-freehand";
 
+const serializeElements = (elements) =>
+  elements.map(({ path, roughEle, ...element }) => element);
+
+const restoreElements = (elements) =>
+  elements.map((element, index) => {
+    if (element.type === TOOL_ITEMS.BRUSH) {
+      const points = element.points || [];
+      return {
+        ...element,
+        id: element.id ?? index,
+        points,
+        path: new Path2D(getSvgPathFromStroke(getStroke(points))),
+      };
+    }
+
+    const restoredElement = createElement(
+      element.id ?? index,
+      element.x1,
+      element.y1,
+      element.x2,
+      element.y2,
+      {
+        type: element.type,
+        fill: element.fill,
+        stroke: element.stroke,
+        size: element.size,
+      },
+    );
+    return {
+      ...element,
+      ...restoredElement,
+      ...(element.type === TOOL_ITEMS.TEXT ? { text: element.text || "" } : {}),
+    };
+  });
+
 const boardReducer = (state, action) => {
   switch (action.type) {
+    case "LOAD_CANVAS": {
+      return {
+        ...state,
+        canvasId: action.payload.canvasId,
+        elements: action.payload.elements,
+        history: [action.payload.elements],
+        index: 0,
+        toolActionType: TOOL_ACTION_TYPES.NONE,
+      };
+    }
     case BOARD_ACTIONS.CHANGE_TOOL: {
       return {
         ...state,
@@ -136,6 +181,7 @@ const boardReducer = (state, action) => {
   }
 };
 const initialBoardState = {
+  canvasId: null,
   activeToolItem: TOOL_ITEMS.BRUSH,
   toolActionType: TOOL_ACTION_TYPES.NONE,
   elements: [],
@@ -147,6 +193,151 @@ const BoardProvider = ({ children }) => {
     boardReducer,
     initialBoardState,
   );
+  const [canvases, setCanvases] = useState([]);
+  const [canvasesLoading, setCanvasesLoading] = useState(false);
+  const [canvasesError, setCanvasesError] = useState("");
+  const [canvasCreating, setCanvasCreating] = useState(false);
+  const [canvasCreateError, setCanvasCreateError] = useState("");
+  const [canvasLoading, setCanvasLoading] = useState(false);
+  const [canvasError, setCanvasError] = useState("");
+  const [canvasSaveStatus, setCanvasSaveStatus] = useState("saved");
+
+  const fetchCanvases = useCallback(async () => {
+    setCanvasesLoading(true);
+    setCanvasesError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Please log in to view your canvases.");
+
+      const response = await fetch("http://localhost:3030/api/canvas/list", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Failed to fetch canvases.");
+      setCanvases(data);
+    } catch (error) {
+      setCanvasesError(error.message);
+    } finally {
+      setCanvasesLoading(false);
+    }
+  }, []);
+
+  const createCanvas = useCallback(async () => {
+    setCanvasCreating(true);
+    setCanvasCreateError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Please log in to create a canvas.");
+
+      const response = await fetch("http://localhost:3030/api/canvas/create", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Failed to create canvas.");
+      if (!data.canvasId)
+        throw new Error("The server did not return a canvas ID.");
+
+      return data.canvasId;
+    } catch (error) {
+      setCanvasCreateError(error.message);
+      return null;
+    } finally {
+      setCanvasCreating(false);
+    }
+  }, []);
+
+  const renameCanvas = useCallback(async (id, name) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Please log in to rename this canvas.");
+
+    const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to rename canvas.");
+
+    setCanvases((currentCanvases) =>
+      currentCanvases.map((canvas) =>
+        canvas._id === id ? { ...canvas, ...data.canvas } : canvas,
+      ),
+    );
+  }, []);
+
+  const saveCanvas = useCallback(async (id, elements) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setCanvasSaveStatus("error");
+      return;
+    }
+
+    setCanvasSaveStatus("saving");
+    try {
+      const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ elements: serializeElements(elements) }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to save canvas.");
+      setCanvasSaveStatus("saved");
+    } catch (error) {
+      console.error("Canvas autosave failed:", error);
+      setCanvasSaveStatus("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!boardState.canvasId) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      saveCanvas(boardState.canvasId, boardState.elements);
+    }, 700);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [boardState.canvasId, boardState.elements, saveCanvas]);
+
+  const loadCanvas = useCallback(async (id) => {
+    setCanvasLoading(true);
+    setCanvasError("");
+    setCanvasSaveStatus("saved");
+    dispatchBoardAction({
+      type: "LOAD_CANVAS",
+      payload: { canvasId: null, elements: [] },
+    });
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Please log in to open this canvas.");
+
+      const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to load canvas.");
+
+      dispatchBoardAction({
+        type: "LOAD_CANVAS",
+        payload: {
+          canvasId: id,
+          elements: restoreElements(data.elements || []),
+        },
+      });
+    } catch (error) {
+      setCanvasError(error.message);
+    } finally {
+      setCanvasLoading(false);
+    }
+  }, []);
 
   const changeToolHandler = (tool) => {
     dispatchBoardAction({ type: BOARD_ACTIONS.CHANGE_TOOL, payload: { tool } });
@@ -234,6 +425,18 @@ const BoardProvider = ({ children }) => {
     activeToolItem: boardState.activeToolItem,
     elements: boardState.elements,
     toolActionType: boardState.toolActionType,
+    canvases,
+    canvasesLoading,
+    canvasesError,
+    canvasCreating,
+    canvasCreateError,
+    canvasLoading,
+    canvasError,
+    canvasSaveStatus,
+    fetchCanvases,
+    createCanvas,
+    renameCanvas,
+    loadCanvas,
     changeToolHandler,
     boardMouseDownHandler,
     boardMouseMoveHandler,
