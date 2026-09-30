@@ -7,6 +7,7 @@ const {
   updateCanvas,
   deleteCanvas,
   shareCanvas,
+  revokeCanvasShare,
 } = require("../controllers/canvasController");
 
 const router = express.Router();
@@ -14,6 +15,7 @@ const router = express.Router();
 router.get("/list", authMiddleware, getUserCanvases);
 router.post("/create", authMiddleware, createCanvas);
 router.put("/share/:id", authMiddleware, shareCanvas);
+router.delete("/:id/share/:userId", authMiddleware, revokeCanvasShare);
 router.patch("/:id", authMiddleware, updateCanvas);
 router.delete("/:id", authMiddleware, deleteCanvas);
 router.get("/:id", authMiddleware, loadCanvas);

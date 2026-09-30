@@ -19,6 +19,7 @@ const boardContext = createContext({
   createCanvas: async () => null,
   renameCanvas: async () => {},
   shareCanvas: async () => null,
+  revokeCanvasShare: async () => {},
   deleteCanvas: async () => {},
   loadCanvas: async () => {},
   boardMouseDownHandler: () => {},

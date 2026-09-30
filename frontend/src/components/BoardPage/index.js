@@ -31,11 +31,13 @@ function BoardPage() {
       <div className="board-overlay">
         {id && (
           <div className={styles.saveStatus} role="status">
-            {canvasSaveStatus === "saving"
-              ? "Saving..."
-              : canvasSaveStatus === "error"
-                ? "Save failed"
-                : "All changes saved"}
+            {canvasSaveStatus === "pending"
+              ? "Changes pending"
+              : canvasSaveStatus === "saving"
+                ? "Saving..."
+                : canvasSaveStatus === "error"
+                  ? "Save failed"
+                  : "All changes saved"}
           </div>
         )}
         <div className="board-overlay-control">

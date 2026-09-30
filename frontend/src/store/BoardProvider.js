@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { io } from "socket.io-client";
+import { apiRequest, SOCKET_BASE_URL } from "../utils/api";
 import boardContext from "./board-context";
 import { BOARD_ACTIONS, TOOL_ACTION_TYPES, TOOL_ITEMS } from "../constants";
 import {
@@ -224,21 +225,15 @@ const BoardProvider = ({ children }) => {
   const socketRef = useRef(null);
   const suppressNextBroadcastRef = useRef(false);
   const pendingCanvasSyncRef = useRef(null);
+  const lastObservedCanvasIdRef = useRef(null);
+  const saveRevisionRef = useRef(0);
+  const saveQueueRef = useRef(Promise.resolve());
 
   const fetchCanvases = useCallback(async () => {
     setCanvasesLoading(true);
     setCanvasesError("");
     try {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Please log in to view your canvases.");
-
-      const response = await fetch("http://localhost:3030/api/canvas/list", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "Failed to fetch canvases.");
-      setCanvases(data);
+      setCanvases(await apiRequest("/canvas/list"));
     } catch (error) {
       setCanvasesError(error.message);
     } finally {
@@ -250,16 +245,9 @@ const BoardProvider = ({ children }) => {
     setCanvasCreating(true);
     setCanvasCreateError("");
     try {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Please log in to create a canvas.");
-
-      const response = await fetch("http://localhost:3030/api/canvas/create", {
+      const data = await apiRequest("/canvas/create", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "Failed to create canvas.");
       if (!data.canvasId)
         throw new Error("The server did not return a canvas ID.");
 
@@ -273,19 +261,10 @@ const BoardProvider = ({ children }) => {
   }, []);
 
   const renameCanvas = useCallback(async (id, name) => {
-    const token = localStorage.getItem("token");
-    if (!token) throw new Error("Please log in to rename this canvas.");
-
-    const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
+    const data = await apiRequest(`/canvas/${id}`, {
       method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({ name }),
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Failed to rename canvas.");
 
     setCanvases((currentCanvases) =>
       currentCanvases.map((canvas) =>
@@ -295,29 +274,24 @@ const BoardProvider = ({ children }) => {
   }, []);
 
   const shareCanvas = useCallback(async (id, email) => {
-    const token = localStorage.getItem("token");
-    if (!token) throw new Error("Please log in to share this canvas.");
-
-    const response = await fetch(
-      `http://localhost:3030/api/canvas/share/${id}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      },
-    );
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Failed to share canvas.");
+    const data = await apiRequest(`/canvas/share/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ email }),
+    });
 
     setCanvases((currentCanvases) =>
       currentCanvases.map((canvas) =>
         canvas._id === id
           ? {
               ...canvas,
-              shared: [...(canvas.shared || []), data.sharedUser.id],
+              shared: [
+                ...(canvas.shared || []),
+                {
+                  _id: data.sharedUser.id,
+                  name: data.sharedUser.name,
+                  email: data.sharedUser.email,
+                },
+              ],
             }
           : canvas,
       ),
@@ -325,46 +299,62 @@ const BoardProvider = ({ children }) => {
     return data.sharedUser;
   }, []);
 
-  const deleteCanvas = useCallback(async (id) => {
-    const token = localStorage.getItem("token");
-    if (!token) throw new Error("Please log in to delete this canvas.");
-
-    const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
+  const revokeCanvasShare = useCallback(async (canvasId, userId) => {
+    await apiRequest(`/canvas/${canvasId}/share/${userId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Failed to delete canvas.");
+
+    setCanvases((currentCanvases) =>
+      currentCanvases.map((canvas) =>
+        canvas._id === canvasId
+          ? {
+              ...canvas,
+              shared: (canvas.shared || []).filter(
+                (sharedUser) =>
+                  String(sharedUser._id || sharedUser.id || sharedUser) !==
+                  String(userId),
+              ),
+            }
+          : canvas,
+      ),
+    );
+  }, []);
+
+  const deleteCanvas = useCallback(async (id) => {
+    await apiRequest(`/canvas/${id}`, {
+      method: "DELETE",
+    });
 
     setCanvases((currentCanvases) =>
       currentCanvases.filter((canvas) => canvas._id !== id),
     );
   }, []);
 
-  const saveCanvas = useCallback(async (id, elements) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setCanvasSaveStatus("error");
-      return;
-    }
+  const saveCanvas = useCallback((id, elements, revision) => {
+    const saveRequest = saveQueueRef.current.catch(() => {}).then(async () => {
+      if (saveRevisionRef.current !== revision) return false;
 
-    setCanvasSaveStatus("saving");
-    try {
-      const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
+      setCanvasSaveStatus("saving");
+      await apiRequest(`/canvas/${id}`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ elements: serializeElements(elements) }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to save canvas.");
-      setCanvasSaveStatus("saved");
-    } catch (error) {
-      console.error("Canvas autosave failed:", error);
-      setCanvasSaveStatus("error");
-    }
+      return true;
+    });
+    saveQueueRef.current = saveRequest.catch(() => {});
+
+    saveRequest
+      .then((didSave) => {
+        if (didSave && saveRevisionRef.current === revision) {
+          setCanvasSaveStatus("saved");
+        }
+      })
+      .catch((error) => {
+        console.error("Canvas autosave failed:", error);
+        if (saveRevisionRef.current === revision) {
+          setCanvasSaveStatus("error");
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -374,13 +364,14 @@ const BoardProvider = ({ children }) => {
       return undefined;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
+    if (!localStorage.getItem("token")) {
       setCanvasSocketReady(false);
       return undefined;
     }
 
-    const socket = io("http://localhost:3030", { auth: { token } });
+    const socket = io(SOCKET_BASE_URL, {
+      auth: { token: localStorage.getItem("token") },
+    });
     socketRef.current = socket;
     setCanvasSocketReady(false);
 
@@ -411,6 +402,19 @@ const BoardProvider = ({ children }) => {
       dispatchBoardAction({
         type: "SYNC_CANVAS",
         payload: { elements: restoreElements(update.elements || []) },
+      });
+    });
+
+    socket.on("canvas:access-revoked", (event) => {
+      if (event.canvasId !== canvasId) return;
+      setCanvasSocketReady(false);
+      setCanvasSaveStatus("saved");
+      setCanvasError(
+        event.message || "The owner removed your access to this canvas.",
+      );
+      dispatchBoardAction({
+        type: "LOAD_CANVAS",
+        payload: { canvasId: null, elements: [] },
       });
     });
 
@@ -462,10 +466,23 @@ const BoardProvider = ({ children }) => {
   }, [boardState.canvasId, canvasSocketReady]);
 
   useEffect(() => {
-    if (!boardState.canvasId) return undefined;
+    if (!boardState.canvasId) {
+      lastObservedCanvasIdRef.current = null;
+      saveRevisionRef.current += 1;
+      return undefined;
+    }
 
+    if (lastObservedCanvasIdRef.current !== boardState.canvasId) {
+      lastObservedCanvasIdRef.current = boardState.canvasId;
+      saveRevisionRef.current += 1;
+      setCanvasSaveStatus("saved");
+      return undefined;
+    }
+
+    const revision = ++saveRevisionRef.current;
+    setCanvasSaveStatus("pending");
     const timeoutId = window.setTimeout(() => {
-      saveCanvas(boardState.canvasId, boardState.elements);
+      saveCanvas(boardState.canvasId, boardState.elements, revision);
     }, 700);
 
     return () => window.clearTimeout(timeoutId);
@@ -480,14 +497,7 @@ const BoardProvider = ({ children }) => {
       payload: { canvasId: null, elements: [] },
     });
     try {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Please log in to open this canvas.");
-
-      const response = await fetch(`http://localhost:3030/api/canvas/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to load canvas.");
+      const data = await apiRequest(`/canvas/${id}`);
 
       dispatchBoardAction({
         type: "LOAD_CANVAS",
@@ -602,6 +612,7 @@ const BoardProvider = ({ children }) => {
     createCanvas,
     renameCanvas,
     shareCanvas,
+    revokeCanvasShare,
     deleteCanvas,
     loadCanvas,
     changeToolHandler,

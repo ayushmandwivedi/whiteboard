@@ -2,14 +2,11 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const { Server } = require("socket.io");
 const Canvas = require("./models/canvasModel");
+const { canAccessCanvas } = require("./utils/canvasAccess");
 
 const reply = (callback, payload) => {
   if (typeof callback === "function") callback(payload);
 };
-
-const canAccessCanvas = (canvas, userId) =>
-  canvas.owner.toString() === userId ||
-  canvas.shared.some((sharedUserId) => sharedUserId.toString() === userId);
 
 const configureSocket = (httpServer) => {
   const io = new Server(httpServer, {
@@ -71,21 +68,16 @@ const configureSocket = (httpServer) => {
           });
         }
 
-        const canvas = await Canvas.findById(canvasId);
-        if (!canvas || !canAccessCanvas(canvas, socket.data.userId)) {
-          await socket.leave(canvasId);
-          return reply(callback, {
-            ok: false,
-            error: "Unauthorized to update this canvas",
-          });
-        }
-
         socket.to(canvasId).emit("canvas:updated", {
           canvasId,
           elements,
           updatedBy: socket.data.userId,
         });
-        return reply(callback, { ok: true });
+        return reply(callback, {
+          ok: true,
+          broadcast: true,
+          persisted: false,
+        });
       } catch (error) {
         return reply(callback, { ok: false, error: "Failed to update canvas" });
       }

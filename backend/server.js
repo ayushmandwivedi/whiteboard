@@ -26,7 +26,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/canvas", canvasRoutes);
 
 const server = http.createServer(app);
-configureSocket(server);
+const io = configureSocket(server);
+app.set("io", io);
 
 const startServer = async () => {
   try {

@@ -8,6 +8,7 @@ import {
   FiPlus,
   FiShare2,
   FiTrash2,
+  FiUsers,
   FiX,
 } from "react-icons/fi";
 import boardContext from "../../store/board-context";
@@ -25,6 +26,7 @@ function CanvasList() {
     createCanvas,
     renameCanvas,
     shareCanvas,
+    revokeCanvasShare,
     deleteCanvas,
   } = useContext(boardContext);
   const [editingCanvasId, setEditingCanvasId] = useState(null);
@@ -35,7 +37,10 @@ function CanvasList() {
   const [shareError, setShareError] = useState("");
   const [shareSuccess, setShareSuccess] = useState("");
   const [sharingRequestId, setSharingRequestId] = useState(null);
+  const [managingCanvasId, setManagingCanvasId] = useState(null);
+  const [revokingShareId, setRevokingShareId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [revokeError, setRevokeError] = useState("");
   const [deletingCanvasId, setDeletingCanvasId] = useState(null);
 
   useEffect(() => {
@@ -98,6 +103,22 @@ function CanvasList() {
     }
   };
 
+  const handleRevoke = async (canvas, sharedUser) => {
+    const userId = sharedUser._id || sharedUser.id || sharedUser;
+    const userLabel = sharedUser.email || sharedUser.name || "this user";
+    if (!window.confirm(`Remove canvas access for ${userLabel}?`)) return;
+
+    setRevokingShareId(String(userId));
+    setRevokeError("");
+    try {
+      await revokeCanvasShare(canvas._id, userId);
+    } catch (error) {
+      setRevokeError(error.message);
+    } finally {
+      setRevokingShareId(null);
+    }
+  };
+
   return (
     <main className={styles.page}>
       <div className={styles.content}>
@@ -145,6 +166,11 @@ function CanvasList() {
             {deleteError}
           </p>
         )}
+        {revokeError && (
+          <p className={styles.error} role="alert">
+            {revokeError}
+          </p>
+        )}
         {canvasesLoading && (
           <p className={styles.message} role="status">
             Loading canvases...
@@ -183,7 +209,59 @@ function CanvasList() {
               }`}
               key={canvas._id}
             >
-              {sharingCanvasId === canvas._id ? (
+              {managingCanvasId === canvas._id ? (
+                <section className={styles.accessPanel}>
+                  <header className={styles.accessHeader}>
+                    <div>
+                      <h2>Shared with</h2>
+                      <p>{canvas.name || "Untitled canvas"}</p>
+                    </div>
+                    <button
+                      className={styles.iconButton}
+                      type="button"
+                      aria-label="Close sharing details"
+                      title="Close"
+                      onClick={() => setManagingCanvasId(null)}
+                    >
+                      <FiX aria-hidden="true" />
+                    </button>
+                  </header>
+                  {canvas.shared?.length ? (
+                    <ul className={styles.sharedUsers}>
+                      {canvas.shared.map((sharedUser) => {
+                        const userId = String(
+                          sharedUser._id || sharedUser.id || sharedUser,
+                        );
+                        return (
+                          <li className={styles.sharedUser} key={userId}>
+                            <span>
+                              <strong>
+                                {sharedUser.name || sharedUser.email || "User"}
+                              </strong>
+                              {sharedUser.email && (
+                                <small>{sharedUser.email}</small>
+                              )}
+                            </span>
+                            <button
+                              className={styles.revokeButton}
+                              type="button"
+                              onClick={() => handleRevoke(canvas, sharedUser)}
+                              disabled={revokingShareId === userId}
+                            >
+                              <FiX aria-hidden="true" />
+                              <span>Remove access</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className={styles.noCollaborators}>
+                      No collaborators have access yet.
+                    </p>
+                  )}
+                </section>
+              ) : sharingCanvasId === canvas._id ? (
                 <form
                   className={styles.shareForm}
                   onSubmit={(event) => handleShare(event, canvas._id)}
@@ -298,6 +376,19 @@ function CanvasList() {
                       >
                         <FiEdit2 aria-hidden="true" />
                         <span>Rename</span>
+                      </button>
+                      <button
+                        className={styles.manageButton}
+                        type="button"
+                        onClick={() => {
+                          setManagingCanvasId(canvas._id);
+                          setRevokeError("");
+                        }}
+                        aria-label={`Manage access to ${canvas.name || "canvas"}`}
+                        title="Manage sharing"
+                      >
+                        <FiUsers aria-hidden="true" />
+                        <span>People</span>
                       </button>
                       <button
                         className={styles.deleteButton}

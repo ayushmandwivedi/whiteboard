@@ -153,7 +153,7 @@
 
 .ownedCanvasItem {
   grid-template-columns: minmax(0, 1fr) 108px;
-  grid-template-rows: repeat(3, 40px);
+  grid-template-rows: repeat(4, minmax(40px, auto));
   align-items: stretch;
   align-content: center;
 }
@@ -180,7 +180,7 @@
 
 .ownedCanvasItem .canvasLink {
   grid-column: 1;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 4;
 }
 
 .sharedCanvasItem .canvasLink {
@@ -236,13 +236,14 @@
 .canvasActions {
   display: grid;
   grid-column: 2;
-  grid-row: 1 / span 3;
-  grid-template-rows: repeat(3, 40px);
+  grid-row: 1 / span 4;
+  grid-template-rows: repeat(4, 40px);
   gap: 8px;
 }
 
 .shareButton,
-.renameButton {
+.renameButton,
+.manageButton {
   display: inline-flex;
   width: 100%;
   min-height: 40px;
@@ -261,6 +262,7 @@
 
 .shareButton:hover,
 .renameButton:hover,
+.manageButton:hover,
 .deleteButton:hover,
 .iconButton:hover {
   border-color: #a78bfa;
@@ -268,7 +270,8 @@
 }
 
 .shareButton svg,
-.renameButton svg {
+.renameButton svg,
+.manageButton svg {
   width: 15px;
   height: 15px;
 }
@@ -276,7 +279,7 @@
 .renameForm {
   display: grid;
   grid-column: 1 / -1;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 4;
   grid-template-columns: minmax(0, 1fr) 40px 40px;
   gap: 8px;
 }
@@ -284,10 +287,112 @@
 .shareForm {
   display: grid;
   grid-column: 1 / -1;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 4;
   grid-template-columns: minmax(0, 1fr) 40px 40px;
   gap: 8px;
   align-self: center;
+}
+
+.accessPanel {
+  grid-column: 1 / -1;
+  grid-row: 1 / span 4;
+  align-self: stretch;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+}
+
+.accessHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.accessHeader h2 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.accessHeader p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.sharedUsers {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sharedUser {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #f1f5f9;
+  padding: 10px 0 0;
+}
+
+.sharedUser strong,
+.sharedUser small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.sharedUser strong {
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.sharedUser small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.revokeButton {
+  display: inline-flex;
+  min-height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 0 9px;
+  background: #fff;
+  color: #b91c1c;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.revokeButton:hover {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.revokeButton:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.revokeButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.noCollaborators {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .renameInput {
